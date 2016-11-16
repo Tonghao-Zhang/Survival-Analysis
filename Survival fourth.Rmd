@@ -1,0 +1,105 @@
+---
+title: "Survival fourth"
+author: "Tonghao Zhang"
+date: "2016/10/26"
+output: pdf_document
+---
+
+##Ex9.2
+```{r 9.2,include=TRUE}
+library(survival)
+library(KMsurv)
+
+data("bnct");attach(bnct)
+Z1<-1*(trt==2);Z2<-1*(trt==3)
+Z3<-log(time)*Z1;Z4<-log(time)*Z2
+cox9.2full<-coxph(Surv(time,death)~Z1+Z2+Z3+Z4)
+cox9.2re<-coxph(Surv(time,death)~Z1+Z2)
+LR<-2*(cox9.2full$loglik[2]-cox9.2re$loglik[2])
+p<-1-pchisq(LR,2)
+detach(bnct)
+```
+
+####Solution 
+
+I constructed a coxph model with covariates: Z1-indicator for radiated(Z1 = 1 if radiated otherwise 0), Z2-indicator for radiate+BPA(Z2 = 1 if radiate+BPA otherwise 0), and corresponding artifacial covariates Z3 = ln(t)\*Z1, Z4 = ln(t)\*Z2. I Performed local likelihood ratio test on Z3 and Z4 equal zero simutaneously, the corresponing test statistic is `r LR`, following $\chi^2_2$ distribution. The p-values are $`r p`$. It indicates there is not enough evidence to support proportional hazard assumption.
+
+
+
+##Ex9.6
+
+####a)
+```{r 9.6a,include=TRUE}
+data("rats");attach(rats)
+
+Z1<-1*(trt==1)
+cox9.6a<-coxph(Surv(time,tumor)~Z1,method = "breslow")
+sum9.6a<-summary(cox9.6a)
+sum9.6a$conf.int
+```
+
+####b)
+```{r 9.6b,include=TRUE}
+cox9.6b<-coxph(Surv(time,tumor)~Z1+strata(litter),method = "breslow")
+sum9.6b<-summary(cox9.6b)
+sum9.6b$conf.int
+detach(rats)
+```
+
+##Ex11.1
+
+####a)
+```{r 11.1a,include=TRUE,fig.height=3,fig.width=5}
+data("larynx");attach(larynx)
+cox11.1a<-coxph(Surv(time,delta)~as.factor(stage),method = "breslow")
+mres<-resid(cox11.1a)
+data11.a<-data.frame(y=mres,x=age)
+library(ggplot2)
+ggplot(data11.a,aes(x=x,y=y))+geom_point()+labs(x="age",y="martingale residuals")+stat_smooth(method = loess)
+```
+
+####Solution
+
+First I fit a coxph model using stage as covariates. Here I plot the LOWESS smoothed matingale residuals against age plot. It suggests age should enter the model as a indicator covariate.
+
+####b)
+```{r 11.1b,include=TRUE,fig.height=3}
+data11.b<-data.frame(y=mres,x=diagyr)
+ggplot(data11.b,aes(x=x,y=y))+geom_point()+labs(x="diagnose year",y="martingale residuals")+stat_smooth(method = loess)
+```
+
+####Solution
+
+Here is the LOWESS smoothed matingale residuals against year plot. It suggests year should enter the model in a step function form.
+
+####c)
+```{r 11.1c,include=TRUE}
+cox11.1c<-coxph(Surv(time,delta)~as.factor(stage)+age,method = "breslow")
+coxsnell<-delta-resid(cox11.1c)
+cumhaz<-survfit(Surv(coxsnell,larynx$delta)~1,type="fl")
+data11.c<-data.frame(residual=cumhaz$time,estimate=-log(cumhaz$surv))
+detach(larynx)
+```
+
+####Solution 
+
+I fit a coxph model using stage and age in linear form as covariates. Plot a diagnostic plot, y-axis is the estimated cumulative hazard rates while x-axis is cox-snell residuals. The plot is approximately in a straight line, indicating our assumption of proportional hazard model is acceptable.
+```{r,fig.height=2.8}
+ggplot(data11.c,aes(x=residual,y=estimate))+geom_point()+geom_abline(intercept=0,slope=1)+labs(y="Estimated Cumulative Hazard Rates",x="Residuals")
+```
+
+##Ex11.2
+
+```{r 11.2,include=TRUE,fig.height=3.5}
+data("bfeed");attach(bfeed)
+library(gridExtra)
+cox11.2<-coxph(Surv(duration,delta)~as.factor(race)+smoke+poverty,method = "breslow")
+mres<-resid(cox11.2)
+motherage<-data.frame(y=mres,x=agemth)
+m1<-ggplot(motherage,aes(x=x,y=y))+geom_point()+labs(x="mother's age",y="matingale residual")+stat_smooth(method = loess)
+motheredu<-data.frame(y=mres,x=yschool)
+m2<-ggplot(motheredu,aes(x=x,y=y))+geom_point()+labs(x="mother's year of education",y="matingale residual")+stat_smooth(method = loess)
+yrbirth<-data.frame(y=mres,x=ybirth)
+m3<-ggplot(yrbirth,aes(x=x,y=y))+geom_point()+labs(x="year of birth",y="matingale residual")+stat_smooth(method = loess)
+grid.arrange(m1,m2,m3,ncol=3)
+```

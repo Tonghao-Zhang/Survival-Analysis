@@ -1,0 +1,89 @@
+---
+title: "Survival HW#5"
+author: "Tonghao Zhang"
+date: "2016/11/14"
+output: html_document
+---
+
+##12.4
+
+```{r}
+library(survival)
+library(KMsurv)
+library(ggplot2)
+data("kidney");attach(kidney)
+logfit1<-survreg(Surv(time[type==1],delta[type==1])~1,dist = "loglogistic")
+logfit2<-survreg(Surv(time[type==2],delta[type==2])~1,dist = "loglogistic")
+
+mu1<-2.964
+sigma1<-0.539
+lambda1<-exp(-mu1/sigma1)
+alpha1<-1/sigma1
+covhatstar1<-logfit1$var
+covhat1<-covhatstar1
+covhat1[,2]<-covhat1[,2]*logfit1$scale
+covhat1[2,]<-covhat1[2,]*logfit1$scale
+var.lambda1<-exp(-2*mu1/sigma1)*(covhat1[1,1]/sigma1^2+mu1^2*covhat1[2,2]/sigma1^4-2*mu1*covhat1[1,2]/sigma1^3)
+var.alpha1<-covhat1[2,2]/sigma1^4
+sd.lambda1<-sqrt(var.lambda1)
+sd.alpha1<-sqrt(var.alpha1)
+
+mu2<-5.005
+sigma2<-1.74
+lambda2<-exp(-mu2/sigma2)
+alpha2<-1/sigma2
+covhatstar2<-logfit2$var
+covhat2<-covhatstar2
+covhat2[,2]<-covhat2[,2]*logfit2$scale
+covhat2[2,]<-covhat2[2,]*logfit2$scale
+var.lambda2<-exp(-2*mu2/sigma2)*(covhat2[1,1]/sigma2^2+mu2^2*covhat2[2,2]/sigma2^4-2*mu2*covhat2[1,2]/sigma2^3)
+var.alpha2<-covhat2[2,2]/sigma2^4
+sd.lambda2<-sqrt(var.lambda2)
+sd.alpha2<-sqrt(var.alpha2)
+```
+####a)
+
+**group 1**: $\hat(\alpha) = `r alpha1`, \hat(\lambda) = `r lambda1`$, $var(\hat(\alpha)) = `r sd.alpha1`, var(\hat(\lambda)) = `r sd.lambda1`$  
+
+**group 2**: $\hat(\alpha) = `r alpha2`, \hat(\lambda) = `r lambda2`$, $var(\hat(\alpha)) = `r sd.alpha2`, var(\hat(\lambda)) = `r sd.lambda2`$  
+
+####b)
+
+```{r}
+expfit1<-survreg(Surv(time,delta)~1,data=kidney[type==1,],dist = "exponential")
+expfit2<-survreg(Surv(time,delta)~1,data=kidney[type==2,],dist = "exponential")
+LR1<--2*(expfit1$loglik[1]-logfit1$loglik[1])
+LR2<--2*(expfit2$loglik[1]-logfit2$loglik[1])
+p1L<-1-pchisq(LR1,1)
+p2L<-1-pchisq(LR2,1)
+wald1<-sigma1*(1/covhat1[2,2])*sigma1
+wald2<-sigma2*(1/covhat2[2,2])*sigma1
+p1W<-1-pchisq(wald1,1)
+p2W<-1-pchisq(wald2,1)
+```
+
+**group 1**: likelihood ratio test statistic is `r LR1`, p-value is `r p1L`. Wald test statistic is `r wald1`, p-value $`r p1W`$.
+
+**group 2**: likelihood ratio test statistic is `r LR2`, p-value is `r p2L`. Wald test statistic is `r wald2`, p-value `r p2W`. 
+
+####c)
+
+```{r}
+predict(logfit1,data.frame(time=5),type = "quantile",se.fit = TRUE)
+predict(logfit2,data.frame(time=5),type = "quantile",se.fit = TRUE)
+```
+
+####d)
+
+```{r}
+logfit.all<-survreg(Surv(time,delta)~type,data=kidney,dist = "loglogistic")
+summary(logfit.all)
+```
+
+$H_0$: no effect. p-value = 0.357, fail to reject the null hypothesis.
+
+##12.10
+
+##12.12
+
+##12.14
