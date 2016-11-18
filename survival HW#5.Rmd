@@ -2,7 +2,7 @@
 title: "Survival HW#5"
 author: "Tonghao Zhang"
 date: "2016/11/14"
-output: html_document
+output: pdf_document
 ---
 
 ##12.4
@@ -69,21 +69,127 @@ p2W<-1-pchisq(wald2,1)
 ####c)
 
 ```{r}
-predict(logfit1,data.frame(time=5),type = "quantile",se.fit = TRUE)
-predict(logfit2,data.frame(time=5),type = "quantile",se.fit = TRUE)
+S1<-1/(1+lambda1*5^alpha1)
+S2<-1/(1+lambda2*5^alpha2)
+kpfit1<-survfit(Surv(time,delta)~1,data = kidney[type==1,])
+kpfit1.est<-kpfit1$surv[3];CI.1<-c(kpfit1$lower[3],kpfit1$upper[3])
+kpfit2<-survfit(Surv(time,delta)~1,data = kidney[type==2,])
+kpfit2.est<-kpfit2$surv[3];CI.2<-c(kpfit2$lower[3],kpfit2$upper[3])
 ```
+
+The point estimate of first group is `r S1` [0.5285844,1], while KP estimate is `r kpfit1.est`, [`r CI.1`].
+
+The point estimate of group type 2 is `r S2` [0.727708,1], while KP estimate is `r kpfit2.est`, [`r CI.2`].
 
 ####d)
 
 ```{r}
-logfit.all<-survreg(Surv(time,delta)~type,data=kidney,dist = "loglogistic")
-summary(logfit.all)
+logfit.all<-survreg(Surv(time,delta)~as.factor(type),data=kidney,dist = "loglogistic")
+mu.all<-2.9590
+sigma.all<-1.06
+gamma.all<-0.4588
+alpha.all<-1/sigma.all
+lambda.all<-exp(-mu.all/sigma.all)
+beta.all<--gamma.all/sigma.all
+
+afactor<-exp(beta.all)^(1/alpha.all)
+podd<-exp(-beta.all)
 ```
 
 $H_0$: no effect. p-value = 0.357, fail to reject the null hypothesis.
 
+The point estimate of relative odds is `r podd`, point estimate of acceleration factor is `r afactor`.
+
 ##12.10
+
+```{r,fig.height=6}
+library(ggplot2)
+library(gridExtra)
+cumhaz.1<--log(kpfit1$surv);cumhaz.2<--log(kpfit2$surv)
+expfit1<-survreg(Surv(time,delta)~1,data = kidney[type==1,],dist = "exp")
+expfit2<-survreg(Surv(time,delta)~1,data = kidney[type==2,],dist = "exp")
+lambda1.exp<-exp(-3.48)
+lambda2.exp<-exp(-4.01)
+p1<-qplot(kpfit1$time,cumhaz.1)+labs(x="",y="")+ggtitle("exponetial")+geom_line()
+p2<-qplot(kpfit2$time,cumhaz.2)+labs(x="",y="")+ggtitle("exponetial")+geom_line()
+
+weibfit1<-survreg(Surv(time,delta)~1,data = kidney[type==1,],dist = "weibull")
+mu1.weib<-3.194;sigma1.weib<-0.627
+lambda1.weib<-exp(-mu1.weib/sigma1.weib);alpha1.weib<-1/sigma1.weib
+p3<-qplot(log(kpfit1$time),log(cumhaz.1))+labs(x="",y="")+ggtitle("weibull")+geom_line()
+weibfit2<-survreg(Surv(time,delta)~1,data = kidney[type==2,],dist = "weibull")
+mu2.weib<-5.411;sigma2.weib<-1.85
+lambda2.weib<-exp(-mu2.weib/sigma2.weib);alpha2.weib2<-1/sigma2.weib
+p4<-qplot(log(kpfit2$time),log(cumhaz.2))+labs(x="",y="")+ggtitle("weibull")+geom_line()
+
+lognormal1<-survreg(Surv(time,delta)~1,data = kidney[type==1,],dist = "loggaussian")
+lognormal2<-survreg(Surv(time,delta)~1,data = kidney[type==2,],dist = "loggaussian")
+p5<-qplot(log(kpfit1$time),qnorm(1-exp(-cumhaz.1)))+labs(x="",y="")+ggtitle("log-normal")+geom_line()
+p6<-qplot(log(kpfit2$time),qnorm(1-exp(-cumhaz.2)))+labs(x="",y="")+ggtitle("log-normal")+geom_line()
+p7<-qplot(log(kpfit1$time),log(exp(-log(kpfit1$surv))-1))+labs(x="",y="")+ggtitle("log-logistic")+geom_line()
+p8<-qplot(log(kpfit2$time),log(exp(-log(kpfit2$surv))-1))+labs(x="",y="")+ggtitle("log-logistic")+geom_line()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+```{r,fig.height=6}
+grid.arrange(p5,p6,p7,p8,ncol=2)
+```
+
+As there not much observed event in type 2 group, its estimate is more like stepwise, not smooth. From the plots above, it seems to me weibull and log-logistic are better models.
 
 ##12.12
 
+```{r,fig.height=3,fig.width=3}
+tfit2<-c(0.5,2.5,3.5,6.5,15.5)
+tfit1<-c(3.5,4.5,5.5,5.5,8.5)
+qplot(tfit1,tfit2)
+```
+
+Again number of observed events in group 2 is too small, I can only find 5 quantiles. From this five points qqplot log-logistic model is ok. 
+
 ##12.14
+
+####a)
+```{r,fig.height=3,fig.width=3}
+data("hodg")
+G<-1*(hodg$gtype==1);D<-1*(hodg$dtype==1)
+weibfit<-survreg(Surv(time,delta)~G+D+G*D,data = hodg,dist = "weibull")
+summary(weibfit)
+mu<-6.952;sigma<-1.65;gamma<-c(-3.319,-1.160,5.358)
+beta<--gamma/sigma
+lambda<-exp(-mu/sigma);alpha<-1/sigma
+
+coxsnell.weib<-lambda*exp(beta[1]*G+beta[2]*D+beta[3]*G*D)*hodg$time^alpha
+kp.cs<-survfit(Surv(coxsnell.weib,hodg$delta)~1)
+qplot(kp.cs$time,-log(kp.cs$surv))
+```
+
+There is a severe departure from straight line, which indicates Weibull is not a suitable model here.
+
+####b)
+
+```{r,fig.height=3,fig.width=3}
+mres.weib<-hodg$delta-coxsnell.weib
+dres.weib<-sign(mres.weib)*(-2*(mres.weib+hodg$delta*log(hodg$delta-mres.weib)))^0.5
+qplot(hodg$time,dres.weib)
+```
+
+Deviance plot indicates Weibull model is not suitable, it is very far from what we expect from a random noise plot.
+
+####c)
+
+```{r,fig.height=3,fig.width=3}
+loglogistic<-survreg(Surv(time,delta)~G+D+G*D,data = hodg,dist = "loglogistic")
+mu<--5.991;sigma<-1.26;gamma<-c(-2.874,-0.786,4.411)
+beta<--gamma/sigma
+lambda<-exp(-mu/sigma);alpha<-1/sigma
+
+#coxsnell.ll<-log(1+exp(-loglogistic$linear.predictors*alpha)*hodg$time^alpha)
+coxsnell.ll<-log(1/(1+lambda*exp(beta[1]*G+beta[2]*D+beta[3]*G*D)*hodg$time^alpha))
+kp.cs.ll<-survfit(Surv(coxsnell.ll,hodg$delta)~1)
+qplot(kp.cs.ll$time,-log(kp.cs.ll$surv))
+mres.ll<-hodg$delta-coxsnell.ll
+dres.ll<-resid(loglogistic,type = "deviance")
+qplot(hodg$time,dres.ll)
+```
+
+Log-logistic model is not suitable neither.
